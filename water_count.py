@@ -1,4 +1,4 @@
-#!/usr/bin/python3.10
+#!/usr/bin/env python3
 
 import pandas as pd
 import numpy as np
@@ -19,9 +19,9 @@ def count():
     """
     resids = []
     with tqdm(total=num_frames, desc="Processing Frames") as pbar:
-        for ts in u.trajectory:
+        for ts in u.trajectory[frames]:
             distance = distances.distance_array(upper_half, lower_half).min()
-            water_between = mda.analysis.distances.between(molecule, upper_half, lower_half, distance - args.d)
+            water_between = mda.analysis.distances.between(molecule, upper_half, lower_half, distance - 0)
             resids.append(water_between.resids)
             pbar.update(1)
     return resids
@@ -29,28 +29,39 @@ def count():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Calculation of order parameters')
-    parser.add_argument('-c', type=str, help='Topology file (default: %(default)s)', default='conf.gro',
+
+    parser.add_argument('-c', type=str, help='Input topology file (default: %(default)s)', default='conf.gro',
                         metavar='<.gro>')
-    parser.add_argument('-s', type=str, help='Topology file (default: %(default)s)', default='topol.tpr',
+    parser.add_argument('-s', type=str, help='Input structure file (default: %(default)s)', default='topol.tpr',
                         metavar='<.tpr>')
-    parser.add_argument('-f', type=str, help='Trajectory file (default: %(default)s)', default='traj_comp.xtc',
+    parser.add_argument('-f', type=str, help='Input trajectory file (default: %(default)s)', default='traj_comp.xtc',
                         metavar='<.xtc>')
-    parser.add_argument('-o', type=str, help='Output text file (default: %(default)s)',
-                        default='water_mols.csv', metavar='<.dat/.txt/.csv/...>')
-    parser.add_argument('-l', '--lipids', type=str, help='Lipid model used, (default: %(default)s)',
+    parser.add_argument('-o', type=str, help='Output file for results (default: %(default)s)', default='water_mols.csv',
+                        metavar='<.dat/.txt/.csv/...>')
+    parser.add_argument('-l', '--lipids', type=str, help='Lipid model used in the simulation (default: %(default)s)',
                         default='DOPC', metavar='<lipid>')
-    parser.add_argument('-la', type=str, nargs='+', help='Lipid atom used', metavar='<atom name>')
-    parser.add_argument('-w', type=str, help='Resname of molecule to be counted, (default: %(default)s)',
+    parser.add_argument('-la', type=str, nargs='+', help='Atoms in the lipid molecule to use for analysis',
+                        metavar='<atom name>')
+    parser.add_argument('-w', type=str, help='Residue name of the molecule to be counted (default: %(default)s)',
                         default='SOL', metavar='<water>')
-    parser.add_argument('-wa', type=str, help='Main atom of molecule to be counted, (default: %(default)s)',
+    parser.add_argument('-wa', type=str, help='Main atom name of the molecule to be counted (default: %(default)s)',
                         default='OW', metavar='<atom>')
     parser.add_argument('-d', type=float, metavar='<distance>', default=0,
-                        help='Distance for decreasing layer in which molecules are counted (default: %(default)sA)')
+                        help='Distance threshold for counting molecules (default: %(default)s Å)')
     parser.add_argument('-rw', type=int, metavar='<rolling window>', default=10,
-                        help='Rolling window parameter for smoothed curve (default: %(default)s)')
-    parser.add_argument('--save_resids', help='Save all resids', action='store_true')
-    parser.add_argument('--calc', help='Calculate mean and error', action='store_true')
-    parser.add_argument('--plot', help='Plot data', action='store_true')
+                        help='Size of the rolling window for smoothing the data (default: %(default)s)')
+    parser.add_argument('-bf', type=int, metavar='<first frame>', default=None,
+                        help='Frame number to start analysis from (default: 0)')
+    parser.add_argument('-b', type=int, metavar='<start time>', default=None,
+                        help='Start time for analysis in ps (default: 0 ps)')
+    parser.add_argument('-ef', type=int, metavar='<last frame>', default=None, help='Frame number to end analysis at')
+    parser.add_argument('-e', type=int, metavar='<last time>', default=None, help='End time for analysis in ps')
+    parser.add_argument('-step', type=int, metavar='<step>', default=None,
+                        help='Interval for frame-based analysis (default: 1)')
+    parser.add_argument('-ts', type=int, metavar='<time step>', default=None, help='Time step interval for analysis')
+    parser.add_argument('--save_resids', help='Flag to save all residue IDs', action='store_true')
+    parser.add_argument('--calc', help='Flag to calculate mean and error of the results', action='store_true')
+    parser.add_argument('--plot', help='Flag to plot the data', action='store_true')
 
     args = parser.parse_args()
 
@@ -59,8 +70,21 @@ if __name__ == '__main__':
     else:
         u = mda.Universe(args.c, args.f)
 
-    num_frames = len(u.trajectory)
     time = u.trajectory.totaltime
+
+    if args.b is not None or args.e is not None or args.ts is not None:
+        total_frames = len(u.trajectory)
+        frames_range = range(int(args.b * total_frames / time) if args.b is not None else 0,
+                             int(args.e * total_frames / time) if args.e is not None else len(u.trajectory) - 1,
+                             int(args.ts * total_frames / time) if args.ts is not None else 1)
+        frames = [i for i in frames_range]
+    else:
+        frames_range = range(args.bf if args.bf is not None else 0,
+                             args.ef if args.ef is not None else len(u.trajectory),
+                             args.step if args.step is not None else 1)
+        frames = [i for i in frames_range]
+
+    num_frames = len(u.trajectory[frames])
 
     membrane = u.select_atoms(f"resname {args.lipids}")
     membrane_com = membrane.center_of_mass(compound='group')
