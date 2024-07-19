@@ -4,14 +4,17 @@ This script counts the number of water molecules between the upper and lower hal
 
 ## Description
 
-The script uses the MDAnalysis library to process the trajectory and calculate the number of water molecules located between the upper and lower halves of the membrane for each frame in the trajectory. 
+The script uses the [MDAnalysis](https://www.mdanalysis.org/) to process the trajectory and calculate the number of water molecules located between the upper and lower halves of the membrane for each frame in the trajectory. 
 It also provides options for saving residue IDs, calculating mean and error, and plotting the data.
 
 Originally, this script is used for calculating water molecules inside the hydrophobic core of a lipid membrane. To estimate the number of water molecules in the hydrophobic core (in the region of lipid tails), 
 we used the following simple method. We defined the boundaries of the hydrophobic core using the C32 and C22 carbon atoms of lipids (first C-atoms after carboxyl group for each lipid). 
 For each frame of the MD trajectory, the minimum distance r between C-atoms of different half-layers is determined. Then we select molecules which distances to each half-layer is less than r. 
 Indeed, this is only possible for those water molecules that are located within these boundaries. 
-All water molecules outside the membrane will have a greater distance than r to one or another layer of C-atoms.
+All water molecules outside the membrane will have a greater distance than r to one or another layer of C-atoms.  
+
+This method was first described and applied in [this article](https://doi.org/10.1016/j.molliq.2024.123948). Please cite:  
+>Yakush, E.A., Shelepova, E.A. and Medvedev, N.N., 2024. Mechanism of water transport through the lipid membrane with trichogin GA IV. Molecular dynamics study. Journal of Molecular Liquids, 396, p.123948.
 
 
 ## Installation
